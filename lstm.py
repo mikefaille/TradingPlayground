@@ -15,13 +15,13 @@ from sklearn import preprocessing
 # Parameters of what data to select
 BEGINNING_DATE = '2013-03-31'
 ENDING_DATE = '2018-03-31'
-TICKER = 'TSLA'
+TICKER = 'AAPL'
 
 # These parameters will tweak the model
 BATCH_SIZE = 30
 LOSS = 'mean_squared_error'
-N_HIDDEN = 20000
-NUM_EPOCHS = 25
+N_HIDDEN = 200
+NUM_EPOCHS = 10
 NUM_TIMESTEPS = 90
 OPTIMIZER = 'adam'
 TIMESTEPS_AHEAD = 1
@@ -37,7 +37,7 @@ TRAIN_TEST_RATIO = 0.75
 BACKTEST_RATIO = 0.1
 
 # setting the random seed allow to make the experiment reproductible
-SEED =1337
+SEED = 1337
 np.random.seed(SEED)
 
 
@@ -59,15 +59,16 @@ def get_training_data(beginning_date: str, ending_date: str, ticker: str) -> typ
     sentiments = np.array(sentiments).reshape((len(sentiments), 1))
     sentiments = sentiments_scaler.fit_transform(sentiments)
 
-    close = train_data['close'].values.astype(float)
+    close = train_data.close.values.astype(float)
     close = np.array(close).reshape((len(close), 1))
+    close = close[1:] - close[:-1]
     close = close_scaler.fit_transform(close)
 
     fcf = train_data['fcfps'].values.astype(float)
     fcf = np.array(fcf).reshape((len(fcf), 1))
     fcf = fcf_scaler.fit_transform(fcf)
 
-    data = np.concatenate((sentiments, close, fcf), axis=1)
+    data = np.concatenate((sentiments[1:], close, fcf[1:]), axis=1)
     return data, sentiments_scaler, close_scaler, fcf_scaler
 
 
@@ -148,7 +149,7 @@ def create_model(units: int,
     create and return the model
     """
     model = Sequential()
-    model.add(LSTM(num_timesteps,
+    model.add(LSTM(N_HIDDEN,
                    input_shape=(num_timesteps, units),
                    batch_input_shape=(batch_size, num_timesteps, units),
                    return_sequences=True))
@@ -179,6 +180,7 @@ def train_model(model: Sequential,
                   epochs=1,
                   validation_data=(xtest, ytest),
                   shuffle=False)
+        print(model.summary())
         model.reset_states()
 
 
@@ -208,6 +210,9 @@ def show_prediction(prediction: np.ndarray, reality: np.ndarray):
     :param reality:
     :return:
     """
+    print('Expected value: ', sum(prediction[:, 1]))
+    print('Real value: ', sum(reality[:, 1]))
+
     plt.plot(prediction[:, 0])
     plt.plot(reality[:, 0])
     plt.show()
